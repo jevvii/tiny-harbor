@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#223a43" />
+  <title>Tiny Harbor — a living miniature island</title>
+  <meta name="description" content="Tiny Harbor is a cozy procedural island diorama that keeps its own time. Built with three.js." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23243c44'/%3E%3Cpath d='M30 14h4l3 8h-10z' fill='%23f5ecd8'/%3E%3Cpath d='M24 30h16l3 22H21z' fill='%23f5ecd8'/%3E%3Cpath d='M24 37h18v6H23z' fill='%23d97c62'/%3E%3Ccircle cx='32' cy='25' r='3' fill='%23efbf72'/%3E%3C/svg%3E" />
+  <style>
+    :root {
+      --ink: #223a43;
+      --ink-2: #36535b;
+      --ink-3: #5b7074;
+      --paper: #f6eeda;
+      --paper-2: #eee2c9;
+      --paper-3: #dfd0b2;
+      --coral: #d77860;
+      --coral-deep: #b95e4d;
+      --seafoam: #86b9ad;
+      --seafoam-deep: #5f948c;
+      --gold: #e5b971;
+      --line: rgba(34, 58, 67, 0.18);
+      --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+      --sans: "Avenir Next", Avenir, "Segoe UI", system-ui, -apple-system, sans-serif;
+      --ease: cubic-bezier(.2, .8, .2, 1);
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #213942;
+      color: var(--ink);
+      font-family: var(--sans);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, input:focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 3px;
+    }
+
+    #scene {
+      position: fixed;
+      inset: 0;
+      touch-action: none;
+    }
+    #harbor {
+      display: block;
+      width: 100%;
+      height: 100%;
+      outline: none;
+      cursor: grab;
+    }
+    #harbor:active { cursor: grabbing; }
+    #harbor.pointing { cursor: pointer; }
+
+    #ui {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    .vignette {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse at 50% 48%, transparent 47%, rgba(19, 40, 47, 0.17) 100%),
+        linear-gradient(to bottom, rgba(18, 38, 45, 0.13), transparent 15%, transparent 78%, rgba(16, 34, 40, 0.24));
+      mix-blend-mode: multiply;
+    }
+
+    .masthead {
+      position: absolute;
+      top: max(22px, env(safe-area-inset-top));
+      left: max(24px, env(safe-area-inset-left));
+      right: max(24px, env(safe-area-inset-right));
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand-plaque {
+      pointer-events: auto;
+      position: relative;
+      width: 288px;
+      padding: 17px 19px 15px 22px;
+      background: rgba(246, 238, 218, 0.94);
+      border: 1px solid rgba(34, 58, 67, 0.22);
+      border-radius: 3px 17px 4px 4px;
+      box-shadow:
+        0 2px 0 rgba(255, 255, 255, 0.56) inset,
+        0 15px 45px rgba(19, 42, 49, 0.22);
+      transform-origin: top left;
+    }
+    .brand-plaque::after {
+      content: "";
+      position: absolute;
+      inset: 6px;
+      border: 1px solid rgba(34, 58, 67, 0.1);
+      border-radius: 1px 13px 2px 2px;
+      pointer-events: none;
+    }
+    .brand-top {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+    .brand-mark {
+      flex: 0 0 auto;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--ink);
+      color: var(--gold);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 0 3px rgba(34, 58, 67, .08);
+    }
+    .brand-mark svg { width: 21px; height: 21px; display: block; }
+    .brand-plaque h1 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(25px, 2.1vw, 32px);
+      font-weight: 500;
+      letter-spacing: -0.035em;
+      line-height: 0.98;
+      color: var(--ink);
+    }
+    .brand-plaque p {
+      margin: 6px 0 0;
+      font-size: 11px;
+      letter-spacing: 0.01em;
+      line-height: 1.35;
+      color: var(--ink-2);
+      max-width: 210px;
+    }
+    .brand-rule {
+      height: 1px;
+      margin: 12px 0 8px;
+      background: linear-gradient(to right, var(--coral) 0 28px, rgba(34,58,67,.14) 28px 100%);
+    }
+    .brand-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--serif);
+      font-size: 10px;
+      font-style: italic;
+      color: var(--ink-3);
+      letter-spacing: .015em;
+    }
+
+    .phase-badge {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px 9px 10px;
+      background: rgba(246, 238, 218, 0.9);
+      border: 1px solid rgba(34, 58, 67, 0.18);
+      border-radius: 999px;
+      box-shadow: 0 10px 30px rgba(19, 42, 49, 0.16);
+      min-width: 146px;
+    }
+    .phase-icon {
+      position: relative;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--ink);
+      color: var(--gold);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    .phase-icon svg { width: 18px; height: 18px; position: absolute; transition: opacity .5s var(--ease), transform .6s var(--ease); }
+    .phase-icon .moon { opacity: 0; transform: translateY(8px) rotate(-18deg); }
+    .phase-icon.night { color: #c8d7ec; background: #1e3242; }
+    .phase-icon.night .sun { opacity: 0; transform: translateY(-8px) rotate(25deg); }
+    .phase-icon.night .moon { opacity: 1; transform: none; }
+    .phase-text { display: flex; flex-direction: column; line-height: 1.05; }
+    .phase-text strong {
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .04em;
+      font-weight: 650;
+      color: var(--ink);
+    }
+    .phase-text em {
+      margin-top: 3px;
+      font-family: var(--serif);
+      font-size: 10.5px;
+      font-style: italic;
+      color: var(--ink-3);
+      white-space: nowrap;
+    }
+
+    .focus-card {
+      position: absolute;
+      top: 214px;
+      left: max(24px, env(safe-area-inset-left));
+      width: 244px;
+      padding: 14px 16px 13px;
+      background: rgba(34, 58, 67, 0.94);
+      color: var(--paper);
+      border: 1px solid rgba(246, 238, 218, 0.2);
+      border-radius: 2px 13px 3px 13px;
+      box-shadow: 0 16px 38px rgba(17, 35, 41, 0.25);
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity .35s var(--ease), transform .45s var(--ease);
+    }
+    .focus-card.visible {
+      opacity: 1;
+      transform: none;
+      pointer-events: auto;
+    }
+    .focus-kicker {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 9px;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      color: var(--seafoam);
+    }
+    .focus-kicker::before {
+      content: "";
+      width: 14px;
+      height: 1px;
+      background: var(--coral);
+    }
+    .focus-card h2 {
+      margin: 9px 0 3px;
+      font-family: var(--serif);
+      font-size: 21px;
+      font-weight: 500;
+      letter-spacing: -.02em;
+      line-height: 1.05;
+      color: var(--paper);
+    }
+    .focus-card p {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 11.5px;
+      line-height: 1.42;
+      color: rgba(246, 238, 218, 0.72);
+    }
+    .focus-return {
+      appearance: none;
+      border: 0;
+      background: none;
+      padding: 6px 0 0;
+      margin-top: 7px;
+      color: var(--gold);
+      font-size: 10.5px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(229, 185, 113, .35);
+      transition: border-color .2s, color .2s;
+    }
+    .focus-return:hover { color: #f2d49d; border-color: #f2d49d; }
+
+    .hint {
+      position: absolute;
+      left: 50%;
+      bottom: max(88px, calc(env(safe-area-inset-bottom) + 84px));
+      transform: translateX(-50%);
+      color: rgba(246, 238, 218, 0.73);
+      font-size: 10.5px;
+      letter-spacing: .025em;
+      text-shadow: 0 1px 10px rgba(17, 35, 41, 0.7);
+      white-space: nowrap;
+      transition: opacity .6s var(--ease);
+    }
+    .hint.faded { opacity: 0; }
+
+    .control-dock {
+      pointer-events: auto;
+      position: absolute;
+      left: 50%;
+      bottom: max(20px, env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      width: min(790px, calc(100vw - 40px));
+      padding: 9px 12px 9px 15px;
+      background: rgba(31, 53, 60, 0.94);
+      border: 1px solid rgba(246, 238, 218, 0.17);
+      border-radius: 20px 6px 20px 20px;
+      box-shadow:
+        0 1px 0 rgba(255,255,255,.06) inset,
+        0 18px 55px rgba(12, 28, 34, 0.32);
+      color: var(--paper);
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+    }
+    .time-group {
+      flex: 1 1 230px;
+      min-width: 178px;
+      border-right: 1px solid rgba(246, 238, 218, 0.13);
+      padding-right: 15px;
+    }
+    .time-readout {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      line-height: 1;
+    }
+    .time-readout strong {
+      font-family: var(--serif);
+      font-size: 17px;
+      font-weight: 500;
+      letter-spacing: .015em;
+      font-variant-numeric: tabular-nums;
+      color: var(--paper);
+    }
+    .time-readout span {
+      font-size: 8.5px;
+      color: rgba(246, 238, 218, 0.55);
+      margin-top: 4px;
+      letter-spacing: .03em;
+      white-space: nowrap;
+    }
+
+    .day-range {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 26px;
+      background: transparent;
+      cursor: pointer;
+      margin: 0;
+    }
+    .day-range::-webkit-slider-runnable-track {
+      height: 4px;
+      border-radius: 99px;
+      background: linear-gradient(to right, #c7b3b4 0%, #efc18c 11%, #7fb6ca 27%, #8bbcb5 46%, #d68f73 54%, #505d8b 66%, #293958 84%, #a493ad 94%, #c7b3b4 100%);
+      box-shadow: 0 1px 0 rgba(0,0,0,.2) inset;
+    }
+    .day-range::-moz-range-track {
+      height: 4px;
+      border-radius: 99px;
+      background: linear-gradient(to right, #c7b3b4 0%, #efc18c 11%, #7fb6ca 27%, #8bbcb5 46%, #d68f73 54%, #505d8b 66%, #293958 84%, #a493ad 94%, #c7b3b4 100%);
+    }
+    .day-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      margin-top: -6px;
+      border-radius: 50%;
+      background: var(--paper);
+      border: 2px solid var(--gold);
+      box-shadow: 0 2px 8px rgba(0,0,0,.4);
+    }
+    .day-range::-moz-range-thumb {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--paper);
+      border: 2px solid var(--gold);
+      box-shadow: 0 2px 8px rgba(0,0,0,.4);
+    }
+
+    .speed-group { gap: 3px; }
+    .speed-btn, .weather-btn, .sound-btn {
+      appearance: none;
+      border: 0;
+      cursor: pointer;
+      color: rgba(246, 238, 218, 0.72);
+      background: transparent;
+      transition: color .2s var(--ease), background .2s var(--ease), transform .16s var(--ease);
+    }
+    .speed-btn {
+      min-width: 28px;
+      height: 28px;
+      padding: 0 5px;
+      border-radius: 7px;
+      font-size: 10px;
+      font-weight: 650;
+      letter-spacing: .01em;
+    }
+    .speed-btn:hover, .weather-btn:hover, .sound-btn:hover { color: var(--paper); }
+    .speed-btn.active {
+      background: rgba(134, 185, 173, 0.92);
+      color: #1e373d;
+    }
+    .weather-group { gap: 3px; }
+    .weather-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      height: 30px;
+      padding: 0 8px;
+      border-radius: 8px;
+      font-size: 9.5px;
+      letter-spacing: .015em;
+    }
+    .weather-btn svg { width: 15px; height: 15px; display: block; opacity: .9; }
+    .weather-btn.active {
+      background: var(--coral);
+      color: #fff5e6;
+    }
+    .weather-btn.active svg { opacity: 1; }
+    .sound-btn {
+      width: 34px;
+      height: 34px;
+      margin-left: 1px;
+      border-left: 1px solid rgba(246, 238, 218, 0.13);
+      border-radius: 0 6px 6px 0;
+      display: grid;
+      place-items: center;
+      padding-left: 12px;
+    }
+    .sound-btn svg { width: 16px; height: 16px; }
+    .sound-btn .on { display: none; }
+    .sound-btn.active { color: var(--gold); }
+    .sound-btn.active .on { display: block; }
+    .sound-btn.active .off { display: none; }
+
+    #loader {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      background: #223a43;
+      color: var(--paper);
+      pointer-events: none;
+      transition: opacity .9s var(--ease), visibility .9s;
+    }
+    #loader.gone { opacity: 0; visibility: hidden; }
+    .loader-inner {
+      display: grid;
+      place-items: center;
+      gap: 17px;
+      text-align: center;
+    }
+    .loader-mark {
+      width: 48px;
+      height: 48px;
+      color: var(--gold);
+      animation: bob 2.6s ease-in-out infinite;
+    }
+    .loader-inner p {
+      margin: 0;
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 14px;
+      color: rgba(246, 238, 218, 0.7);
+    }
+    .loader-line {
+      width: 74px;
+      height: 1px;
+      margin: 2px auto 0;
+      background: rgba(246,238,218,.18);
+      overflow: hidden;
+    }
+    .loader-line::after {
+      content: "";
+      display: block;
+      width: 34%;
+      height: 100%;
+      background: var(--coral);
+      animation: tide 1.4s var(--ease) infinite;
+    }
+    @keyframes tide {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(310%); }
+    }
+    @keyframes bob {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+
+    body.record {
+      display: grid;
+      place-items: center;
+      background: #0e2027;
+    }
+    body.record #scene {
+      position: relative;
+      inset: auto;
+      width: 1080px;
+      height: 1350px;
+    }
+    body.record #ui, body.record #loader { display: none; }
+    body.record #harbor { width: 1080px; height: 1350px; cursor: default; }
+
+    @media (max-width: 760px) {
+      .masthead { top: max(14px, env(safe-area-inset-top)); left: 14px; right: 14px; gap: 10px; }
+      .brand-plaque { width: 214px; padding: 13px 14px 11px 16px; border-radius: 3px 14px 3px 3px; }
+      .brand-mark { width: 29px; height: 29px; }
+      .brand-mark svg { width: 18px; height: 18px; }
+      .brand-plaque h1 { font-size: 23px; }
+      .brand-plaque p { font-size: 9.5px; max-width: 155px; margin-top: 4px; }
+      .brand-rule { margin: 9px 0 6px; }
+      .brand-meta { font-size: 8.5px; }
+      .phase-badge { padding: 7px 10px 7px 8px; min-width: 0; gap: 7px; }
+      .phase-icon { width: 27px; height: 27px; }
+      .phase-icon svg { width: 15px; height: 15px; }
+      .phase-text strong { font-size: 10.5px; }
+      .phase-text em { font-size: 9px; max-width: 64px; overflow: hidden; text-overflow: ellipsis; }
+      .focus-card { top: 176px; left: 14px; width: 206px; }
+      .focus-card h2 { font-size: 18px; }
+      .focus-card p { font-size: 10.5px; }
+      .hint { bottom: max(136px, calc(env(safe-area-inset-bottom) + 132px)); font-size: 9.5px; }
+      .control-dock {
+        bottom: max(10px, env(safe-area-inset-bottom));
+        width: calc(100vw - 20px);
+        padding: 8px 9px;
+        gap: 8px;
+        flex-wrap: wrap;
+        border-radius: 16px 4px 16px 16px;
+        justify-content: center;
+      }
+      .time-group { flex: 1 1 100%; border-right: 0; border-bottom: 1px solid rgba(246,238,218,.12); padding: 0 0 7px; }
+      .time-readout { flex-direction: row; align-items: baseline; gap: 6px; }
+      .time-readout strong { font-size: 14px; }
+      .time-readout span { font-size: 8px; }
+      .speed-group { flex: 0 0 auto; }
+      .weather-group { margin-left: auto; }
+      .weather-btn { padding: 0 6px; font-size: 9px; gap: 4px; }
+      .weather-btn svg { width: 13px; height: 13px; }
+      .sound-btn { border-left: 0; width: 30px; padding-left: 3px; }
+    }
+
+    @media (max-width: 380px) {
+      .phase-badge { display: none; }
+      .weather-btn span { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="scene">
+    <canvas id="harbor" aria-label="A living miniature island harbor. Drag to orbit, scroll to zoom, and click boats or buildings to visit them."></canvas>
+  </div>
+
+  <div id="ui">
+    <div class="vignette"></div>
+
+    <header class="masthead">
+      <section class="brand-plaque" aria-label="Tiny Harbor">
+        <div class="brand-top">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M10.6 2.9h2.8l.8 3.4h-4.4l.8-3.4Z" fill="currentColor"/>
+              <path d="M8.4 7h7.2l.9 2.2H7.5L8.4 7Z" fill="#d77860"/>
+              <path d="M7.2 20.1 8.1 10h7.8l.9 10.1H7.2Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
+              <path d="M7.2 20.1h9.6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+              <path d="M8.7 13.2h6.6M8.4 16.7h7.2" stroke="#d77860" stroke-width="1.7"/>
+            </svg>
+          </span>
+          <h1>Tiny Harbor</h1>
+        </div>
+        <p>A little island that keeps its own time, even when nobody is looking.</p>
+        <div class="brand-rule"></div>
+        <div class="brand-meta"><span>Somewhere north</span><span>tide is in</span></div>
+      </section>
+
+      <div class="phase-badge" aria-live="polite">
+        <span class="phase-icon" id="phase-icon" aria-hidden="true">
+          <svg class="sun" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" fill="currentColor"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6 19 19M19 5l-1.4 1.4M6.4 17.6 5 19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <svg class="moon" viewBox="0 0 24 24" fill="none"><path d="M20.2 15.1A8.7 8.7 0 0 1 8.9 3.8a8.7 8.7 0 1 0 11.3 11.3Z" fill="currentColor"/></svg>
+        </span>
+        <span class="phase-text"><strong id="clock">10:18</strong><em id="phase">Morning light</em></span>
+      </div>
+    </header>
+
+    <aside class="focus-card" id="focus-card" aria-live="polite">
+      <div class="focus-kicker" id="focus-kicker">a little place</div>
+      <h2 id="focus-name">The harbor</h2>
+      <p id="focus-note">Wander as long as you like.</p>
+      <button class="focus-return" id="focus-return" type="button">Return to the whole island</button>
+    </aside>
+
+    <div class="hint" id="hint">Drag to wander · click a little place to visit</div>
+
+    <div class="control-dock" role="group" aria-label="Harbor controls">
+      <div class="control-group time-group">
+        <div class="time-readout"><strong id="time-copy">10:18</strong><span id="time-phase">morning</span></div>
+        <input class="day-range" id="day-slider" type="range" min="0" max="1" step="0.0005" value="0.175" aria-label="Time of day" />
+      </div>
+
+      <div class="control-group speed-group" role="group" aria-label="Day speed">
+        <button class="speed-btn" type="button" data-speed="0.5" aria-pressed="false">½×</button>
+        <button class="speed-btn active" type="button" data-speed="1" aria-pressed="true">1×</button>
+        <button class="speed-btn" type="button" data-speed="2" aria-pressed="false">2×</button>
+        <button class="speed-btn" type="button" data-speed="4" aria-pressed="false">4×</button>
+      </div>
+
+      <div class="control-group weather-group" role="group" aria-label="Weather">
+        <button class="weather-btn active" type="button" data-weather="clear" aria-pressed="true" title="Clear skies">
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="3.2" stroke="currentColor" stroke-width="1.4"/><path d="M10 1.8v2M10 16.2v2M1.8 10h2M16.2 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M15.8 4.2l-1.4 1.4M5.6 14.4l-1.4 1.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <span>Clear</span>
+        </button>
+        <button class="weather-btn" type="button" data-weather="rain" aria-pressed="false" title="Rain">
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5.2 12.4h9.6a3.1 3.1 0 0 0 .2-6.2 4.4 4.4 0 0 0-8.4.8 2.8 2.8 0 0 0-1.4 5.4Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="m6.3 15.1-.9 2.2M10 15.1l-.9 2.2M13.7 15.1l-.9 2.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <span>Rain</span>
+        </button>
+        <button class="weather-btn" type="button" data-weather="snow" aria-pressed="false" title="Snow">
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5.2 12.4h9.6a3.1 3.1 0 0 0 .2-6.2 4.4 4.4 0 0 0-8.4.8 2.8 2.8 0 0 0-1.4 5.4Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M6.2 15.2v2M5.2 16.2h2M10 15.2v2M9 16.2h2M13.8 15.2v2M12.8 16.2h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          <span>Snow</span>
+        </button>
+      </div>
+
+      <button class="sound-btn" id="sound-btn" type="button" aria-pressed="false" aria-label="Turn sound on" title="Sound off">
+        <svg class="off" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 8h3l4-3.2v10.4L7 12H4V8Z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/><path d="m13.3 7.3 3.2 5.4M16.5 7.3l-3.2 5.4" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg>
+        <svg class="on" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 8h3l4-3.2v10.4L7 12H4V8Z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/><path d="M13.3 7.2a4 4 0 0 1 0 5.6M15.4 5.1a7 7 0 0 1 0 9.8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="loader">
+    <div class="loader-inner">
+      <svg class="loader-mark" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <path d="M22 4h4l1.2 5H20.8L22 4Z" fill="currentColor" opacity=".95"/>
+        <path d="M18.5 9h11l1.4 4H17.1l1.4-4Z" fill="#d77860"/>
+        <path d="M16.2 43 18.3 13h11.4l2.1 30H16.2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M16.2 43h15.6M19 23h10M19.8 32h8.4" stroke="#d77860" stroke-width="2"/>
+        <path d="M24 11v2M24 21v2" stroke="currentColor" stroke-width="1.2"/>
+      </svg>
+      <div>
+        <p>Waking the harbor…</p>
+        <div class="loader-line"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

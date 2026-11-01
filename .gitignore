@@ -1,0 +1,9 @@
+# Local Claude Code settings
+.claude/
+
+# Tooling and OS noise
+node_modules/
+__pycache__/
+*.log
+.DS_Store
+Thumbs.db
